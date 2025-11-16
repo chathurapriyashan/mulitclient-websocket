@@ -1,6 +1,6 @@
 {
   "name": "multiclient-websocket",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "this is created for mini applications that need to TCP realtime connections",
   "keywords": [
     "chathura",

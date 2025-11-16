@@ -150,7 +150,12 @@ class WebSocket{
         return this;
     }
 
-    
+    /**
+     * 
+     * @param {number} port 
+     * @param {string} address 
+     * @param {()=>{}} [callback=()=>{}] 
+     */
     listen(port=8080 , address="127.0.0.1" , callback){
         try{
 
@@ -165,17 +170,31 @@ class WebSocket{
         }
     }
 
-
+    /**
+     * @param {Client[]} clients 
+     * @returns {FullDuplexConnection}
+     */
     fullDuplexConnection(clients){
         const connection = new FullDuplexConnection(clients);
         return connection;
     }
 
+
+    /**
+     * @param {Client[]} clients 
+     * @returns {HalfDuplexConnection}
+     */
     halfDuplexConnection(clients){
         const connection = new HalfDuplexConnection(clients);
         return connection;
     }
 
+
+    /**
+     * @param {Client} announcer
+     * @param {Client[]} broadcastList 
+     * @returns {SimplexConnection}
+     */
     simplexConnection(announcer , broadcastList){
         const connection = new SimplexConnection(announcer , broadcastList);
         return connection;
