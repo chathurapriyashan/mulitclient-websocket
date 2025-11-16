@@ -1,5 +1,10 @@
+const Client = require('./Client');
+const FrameDecoder = require('./FrameDecoder');
+const Handshake = require('./Handshake');
 const WebSocket = require('./WebSocket');
+exports.Client = Client;
+exports.Handshake = Handshake;
+exports.FrameDecoder = FrameDecoder; 
 
-const ws = new WebSocket();
-ws.listen(8080 , '0.0.0.0');
+module.exports = WebSocket;
 

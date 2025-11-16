@@ -1,0 +1,30 @@
+{
+  "name": "multiclient-websocket",
+  "version": "1.0.0",
+  "description": "this is created for mini applications that need to TCP realtime connections",
+  "keywords": [
+    "chathura",
+    "priyashan",
+    "websocket",
+    "ws",
+    "js-websocket",
+    "tcp-socket",
+    "tcp-server",
+    "net-server"
+  ],
+  "homepage": "https://github.com/chathurapriyashan/mulitclient-websocket#readme",
+  "bugs": {
+    "url": "https://github.com/chathurapriyashan/mulitclient-websocket/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chathurapriyashan/mulitclient-websocket.git"
+  },
+  "license": "ISC",
+  "author": "chathura priayshan",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
