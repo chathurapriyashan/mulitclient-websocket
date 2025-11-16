@@ -1,5 +1,8 @@
 const net = require('node:net');
 const Client = require('./Client');
+const FullDuplexConnection = require('./connections/FullDuplexConnection');
+const HalfDuplexConnection = require("./connections/HalfDuplexConnection");
+const SimplexConnection = require("./connections/SimplexConnection");
 
 
 class WebSocket{
@@ -8,6 +11,8 @@ class WebSocket{
     #onClientConnectCallback = (newClient)=>{};
     #onClientDisconnectCallback = (client)=>{};
     #onClientMessageCallback = (message , client) => {};
+    #onClientSocketErrorCallback = (error , client) => {};
+    #onClientSocketEndCallback = (client)=>{}
 
     constructor(){
         this.#TCPServer = net.createServer((socket)=>{
@@ -15,49 +20,83 @@ class WebSocket{
                 this.#addClients(socket);                
             }catch(e){
                 console.log(e); 
+
             }
         });
-    }
-
-    #removeClient(client){
-        const index = this.#clients.findIndex(client);
-        this.#clients.splice(index , 1);
-        this.#onClientDisconnectCallback(client);
     }
 
     #addClients(socket){
         const client = new Client(socket);
         client.onMessage(this.#onClientMessageCallback);
+        client.onError(this.#onClientSocketErrorCallback);
+        client.onEnd(this.#onClientSocketEndCallback);
+        client.onClose(this.#onClientDisconnectCallback);
+        client.onConnect(this.#onClientConnectCallback);
+
         this.#clients.push(client);
-        this.#onClientConnectCallback(client);
-        socket.addListener('close' , ()=>{this.#removeClient(client)});        
+        return client;
+        
+   
     }
 
 
+    #removeClient(client){
+        this.#clients = this.#clients.filter(client)
+
+    }
     /**
      * 
-     * @param {Function} callback function(newClient){} or async function(newClient){}
-     * @returns this; websocket
+     * @param {(error : Error , client : Client) => this} callback 
+     * @returns this
      */
-    onClientConnect(callback = this.#onClientConnectCallback){
-       this.#onClientConnectCallback = callback;
-       return this; 
+    onClientSocketError(callback = this.#onClientSocketErrorCallback){
+        this.#onClientSocketErrorCallback = (client)=>{
+            callback(client);
+        };
+        return this;
     }
 
     /**
      * 
-     * @param {Function} callback function(client){} or async function(client){} 
-     * @returns this websocket
+     * @param {(client : Client)=>this} callback 
+     * @returns 
      */
-    onClientDisconnect(callback = this.#onClientDisconnectCallback){
-        this.#onClientDisconnectCallback = callback;
+    onClientSocketEnd(callback = this.#onClientSocketEndCallback){
+        this.#onClientSocketEndCallback = callback;
+        this.#clients = this.#clients.filter(c=> c != client);
+
         return this;
     }
 
 
     /**
      * 
-     * @param {Function} callback function (message , client){}; or async function(client){};
+     * @param {(newClient : Client)=>this} callback function(newClient){} or async function(newClient){}
+     * @returns this; websocket
+     */
+    onClientConnect(callback = this.#onClientConnectCallback){
+       this.#onClientConnectCallback = (client)=>{
+            callback(client);
+       };
+       return this; 
+    }
+
+    /**
+     * 
+     * @param {(client : Client)=>this} callback function(client){} or async function(client){} 
+     * @returns this websocket
+     */
+    onClientDisconnect(callback = this.#onClientDisconnectCallback){
+        this.#onClientDisconnectCallback = (client)=>{
+            callback(client);
+            this.#removeClient(client);
+        }
+        return this;
+    }
+
+    /**
+     * 
+     * @param {(message : String , client : Client)=>this} callback function (message , client){}; or async function(client){};
      * @returns this;
      */
     onClientMessage(callback=this.#onClientMessageCallback){
@@ -65,18 +104,33 @@ class WebSocket{
         return this;
     }
 
-    
-    getConnectedClients(options = { index, startIndex , lastIndex , length}){
-        const output = {};
+    /**
+     * 
+     * @param {{index ?: number , startIndex ?: number , lastIndex ?: number}} [options={index , startIndex , lastIndex}] 
+     * @param {(client:Client , i :number , arr : Client[])=> Boolean} [filterFunc=(client , i , arr)=>{}]
+     * @returns {{clients : Client[], client : Client,length : number}} [output={}]
+     *  
+     * 
+     */
+    getConnectedClients(options = { index : undefined, startIndex : undefined , lastIndex :undefined }, filterFunc){
+        let output = {
+            clients: this.#clients,
+            client: undefined,
+            length : this.#clients.length,
+        };
+        
         for(const [key , value] of Object.entries(options)){
-            if(!key) continue;
+            if(!value) continue;
             if(key =='index') output.client = this.#clients[value];
             if(key == 'startIndex' && !options.lastIndex) output.clients = this.#clients.slice(value) ;
             if(key == 'lastIndex' && !options.startIndex) output.clients = this.#clients.slice(0 , value);
-            if(key == 'length' ) output['length'] =  this.#clients.length;
         }
 
         if(options.startIndex && options.lastIndex) output.clients = this.#clients.slice(options.startIndex , options.lastIndex);
+
+        if(filterFunc){
+            output = output instanceof Array ? output.filter(filterFunc) : output;
+        }
 
         return output;
     }
@@ -85,7 +139,7 @@ class WebSocket{
     /**
      * @name broadcast - send message message to all clients ,but this is simplex connection . clients can't directly reply broadcast message. server to client connection.
      * @param {String} message 
-     * @param {(client: any, i: any, arr: any) => boolean} [filterFunc=(client , i , arr)=>true]  send broadcast message to selected clients;
+     * @param {(client: Client, i: Number, arr: Array[Client]) => boolean} [filterFunc=(client , i , arr)=>true]  send broadcast message to selected clients;
      * @returns this - Websocket
      */
     broadcast(message , filterFunc){
@@ -109,6 +163,22 @@ class WebSocket{
             throw e;
             
         }
+    }
+
+
+    fullDuplexConnection(clients){
+        const connection = new FullDuplexConnection(clients);
+        return connection;
+    }
+
+    halfDuplexConnection(clients){
+        const connection = new HalfDuplexConnection(clients);
+        return connection;
+    }
+
+    simplexConnection(announcer , broadcastList){
+        const connection = new SimplexConnection(announcer , broadcastList);
+        return connection;
     }
 }
 

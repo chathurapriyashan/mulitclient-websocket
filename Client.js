@@ -1,42 +1,111 @@
 const FrameDecoder  = require('./FrameDecoder');
 const Handshake = require('./Handshake');
 
+/**
+ * 
+ * @enum {String} communicationModes  
+ */
+const enumTypeCommunicationModes = {
+    fullDuplex : "fullDuplex",
+    halfDuplex :"halfDuplex",
+    simplex :"simplex",
+}
+
+
 class Client{
     #socket = undefined;
     #id = undefined;
-    #dataListeners = [];
-    #pairedWith = undefined;
+    OPEN = true;
+    // #dataListeners = [];
+    // #pairedWith = undefined;
     #communicationMode = 'fullDuplex';
-    #onMessageCallback = (message , client)=>{}
+    #onMessageCallback = [];
+    #onClientSocketErrorCallback = (error , client)=>{};
+    #onClientSocketEndCallback = (client)=>{};
+    #onClientSocketCloseCallback = (client)=>{};
+    #onSocketConnectCallback = (client)=>{};
+
+
 
     constructor(socket){
-        this.#socket = socket;
-        this.#id = Number.parseInt(Date.now() + Math.random() * 100);
-        this.#socket.isHandShakeDone = false;
+        try{
+
+            this.#socket = socket;
+            this.#id = Number.parseInt(Date.now() + Math.random() * 100);
+            this.#socket.isHandShakeDone = false;
+            
+            
+            this.#socket.addListener('data' , (data)=>{
+                try{
+
+                    if(!this.#socket.isHandShakeDone){
+                        this.#handShake(data);
+                        this.#socket.isHandShakeDone = true;
+                        return;
+                    }
+                    const msg = FrameDecoder.decodeDataFrame(data);
+
+                    // activate communication modes for paired Sockets
+                    // if(this.#pairedWith){
+                    //     this.#fullDuplexCommunication(msg , this.#pairedWith);
+                    //     this.#halfDuplexCommunication(msg , this.#pairedWith);
+                    //     this.#simplexCommunication(msg , this.#pairedWith);
+                    // }
+
+                    //execute post handling onMessageHandler
+                    if(this.#onMessageCallback.length){
+                        this.#onMessageCallback.forEach(callback => callback(msg , this));
+                    }
 
 
-        this.#socket.addListener('data' , (data)=>{
-            if(!this.#socket.isHandShakeDone){
-                this.#handShake(data);
-                this.#socket.isHandShakeDone = true;
-                return;
-            }
+                }catch(e){
+                    console.log(e);
+                }
+            })
+            
+            this.#socket.addListener('error' , (error)=>{
+                try{
+                    this.#onClientSocketErrorCallback(error , this);
+                }catch(e){
+                    console.log(e);
+                }
+            })
+            
+            this.#socket.addListener('close' , ()=>{
+                try{
 
-            const msg = FrameDecoder.decodeDataFrame(data);
-            this.#onMessageCallback(msg , this);
-        })
+                    this.#onClientSocketCloseCallback(this);
+                }catch(e){
+                    console.log(e);
+                }
+            })
+            
+            socket.addListener('end' , ()=>{   
+                try{
+                    this.#onClientSocketEndCallback(this);
+                }catch(e){
+                    console.log(e);
+                }
+                    
+            }); 
+        }catch(e){
+            console.log(e);
+        }
     }
 
-    getId(){
-        return this.#id;
-    }
+
 
     #handShake(data){
         if(!this.#socket.isHandShakeDone){
             const response = Handshake.createHandShakeResponse(data);
-            this.#socket.write(response);
+            this.#socket.write(response , ()=>{
+                this.OPEN = true;
+                this.#onSocketConnectCallback(this);
+            });
         }
     }
+
+    
 
     /**
      * @name socket
@@ -47,13 +116,22 @@ class Client{
     }
 
     /**
-     * 
-     * @param {*} data 
+     * @name write
+     * @requires Buffer
+     * @description this function required  Encoded Frame buffer
+     * @param {Buffer} frame 
      * @returns 
      */
-    write(data){
-        this.#socket.write(data);
-        return this;
+
+    write(frame , callback=()=>{}){
+        try{
+
+            this.#socket.write(frame , callback);
+            return this;
+        }catch(e){
+            console.log(e);
+            
+        }
     }
 
     /** 
@@ -61,65 +139,129 @@ class Client{
         *@param {Frame | dataBuffer} frame  read data from buffer frame
     */
     readFrame(frame){
-        const msg = FrameDecoder.decodeDataFrame(frame);
-        return msg;
-    }
-
-    send(message){
-        const frames = FrameDecoder.encodeFrame(message);
-        frames.forEach(f=>this.#socket.write(f));
-        return this;
-    }
-
-
-    onMessage(callback = this.#onMessageCallback){
-        this.#onMessageCallback = callback;
-        return this;
+        try{
+            const msg = FrameDecoder.decodeDataFrame(frame);
+            return msg;
+        }catch(e){
+            console.log(e);
+            
+        }
     }
 
     /**
-     * @name pairWith
-     * @param {Client} client 
-     * @param {String} communicationMode 'fullDuplex' or 'halfDuplex' or 'simplex'
-     * @description 
-     *  this function creates direct connection with another client
-     *  there are several communication modes
-     *      - fullDuplex - current client and pairedClient can communicate using same channel with both direction same time  channel
-     *      - halfDuplex - current client and pairedClient can communicate using same channel with both direction, but they can't communicate same time , one client have to wait until other one finished communication.
-     *      - simplex - current client and pairedClient can communicate only one direction , that means current Client can send messages , but can't read , and paired client can read messages but can send messages.
-     * @returns this client
+     * @name send
+     * @description this function send string data to client from server
+     * @param {*} message 
+     * @returns 
      */
-    pairWith(pairedClient , communicationMode = 'fullDuplex' , callback=(pairedClient , currentClient)=>{}){
-        this.#pairedWith = pairedClient;
-        this.setCommunicationMode(communicationMode);
-        return this;
+    send(message){
+        try{
+            const frames = FrameDecoder.encodeFrame(message);
+            frames.forEach(f=>this.#socket.write(f));
+            return this;
+        }catch(e){
+            console.log(e);
+            
+        }
     }
 
-    disconnectPairedClient(callback= (pairedClient)=>{}){
-        this.#pairedWith = undefined;
-        callback(this.pairWith);
-        return this;
-    }
+    onConnect(callback){
+        this.#onSocketConnectCallback = callback;
+    }   
 
-    /** 
-     * @name setCommunicationMode
-     * @param {String} communicationMode 'fullDuplex' or 'halfDuplex' or 'simplex'
-     * @description 
-     *  this function creates direct connection with another client
-     *  there are several communication modes
-     *      - fullDuplex - current client and pairedClient can communicate using same channel with both direction same time  channel
-     *      - halfDuplex - current client and pairedClient can communicate using same channel with both direction, but they can't communicate same time , one client have to wait until other one finished communication.
-     *      - simplex - current client and pairedClient can communicate only one direction , that means current Client can send messages , but can't read , and paired client can read messages but can send messages.
-     * @returns this client
-    */
+    close(reason="server side disconnected"){
+        try{
 
-    setCommunicationMode(){
-        this.#communicationMode = communicationMode;
-        return this;
+            const frames = FrameDecoder.encodeFrame(reason , 'close');
+            frames.forEach(f=>this.#socket.write(f));
+            return this;
+            
+        }catch(e){
+            console.log(e);
+        }
     }
 
 
+    destroy(){
+        try{
 
+            this.#socket.destroy();
+        }catch(e){
+            console.log(e);
+            
+        }
+    }
+
+    /**
+     * 
+     * @param {(message : String , client : Client)=>{}} [callback=(message , client)=>{}] 
+     * @returns 
+     */
+    onMessage(callback = this.#onMessageCallback){
+        try{
+            this.#onMessageCallback.push(callback);
+            return this;
+        }catch(e){
+            console.log(e);
+            
+        }
+   
+   
+    }
+
+    onError(callback =  this.#onClientSocketErrorCallback){
+        try{
+
+            this.#onClientSocketErrorCallback = callback;
+            return this;
+        }catch(e){
+            console.log(e);
+            
+        }
+    }
+
+    onEnd(callback = this.#onClientSocketEndCallback){
+        try{
+
+            this.#onClientSocketEndCallback = callback;
+            return this;
+        }catch(e){
+            console.log(e);
+            
+        }
+    }
+
+    onClose(callback = this.#onClientSocketCloseCallback){
+        try{
+            this.#onClientSocketCloseCallback = callback;
+            return this;
+        }catch(e){
+            console.log(e);
+        }
+    }
+
+   
+
+    setCommunicationMode(communicationMode){
+        try{
+            this.#communicationMode = communicationMode;
+            return this;
+        }catch(e){
+            console.log(e);
+        }
+    }
+
+    /**
+     * @name getId
+     * @returns {Number} id
+     */
+    getId(){
+        try{
+            return this.#id;
+        }catch(e){
+            console.log(e);
+        }
+    }
 
 }
 

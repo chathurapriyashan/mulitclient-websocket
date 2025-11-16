@@ -42,6 +42,7 @@ class FrameDecoder {
         const bufferLen = buffer.length;
         const MINIMUM_BUFF_LEN = 10;
 
+
         const buffers = [];
         for (let i = 0; i < bufferLen; i += MINIMUM_BUFF_LEN) {
             buffers.push(buffer.slice(i, i + MINIMUM_BUFF_LEN));
@@ -52,24 +53,26 @@ class FrameDecoder {
 
         const frames = buffers.map((payload, i) => {
             let fin = 0;
-            if (Number.parseInt(i / (buffers.length - 1))) {
+            if (i == buffers.length -1) {
                 fin = 128;
             }
+
+
+
 
             // for default text
             let opcode = fin + 0;
             if (i == 0) {
-                if (type = 'text') {
+                if (type == 'text') {
                     opcode = fin + 1;
                 } else if (type == 'binary') {
-                    opcode == fin + 2;
+                    opcode = fin + 2;
+                }else if(type ==  'close'){
+                    opcode = fin + 8;
                 }
             }
 
-
-
             const payloadLen = payload.length;
-            const mask = 0;
             const frameUArray = new Uint8Array([opcode, payloadLen, ...payload]);
 
             return Buffer.from(frameUArray);
@@ -78,13 +81,7 @@ class FrameDecoder {
 
         });
 
-
         return frames;
-
-
-
-
-
     }
 
 }
