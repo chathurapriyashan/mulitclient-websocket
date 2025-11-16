@@ -1,6 +1,6 @@
 {
   "name": "multiclient-websocket",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "this is created for mini applications that need to TCP realtime connections",
   "keywords": [
     "chathura",
@@ -25,6 +25,5 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
