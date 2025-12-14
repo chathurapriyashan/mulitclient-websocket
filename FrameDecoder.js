@@ -12,7 +12,7 @@ class FrameDecoder {
                 let payloadStartAt = 6;
                 if (payloadLength <= 125) {
                     payloadStartAt = 6;
-                } else if (payloadLength = 126) {
+                } else if (payloadLength == 126) {
                     payloadStartAt = 8;
                 } else if (payloadLength == 127) {
                     payloadStartAt = 10;
