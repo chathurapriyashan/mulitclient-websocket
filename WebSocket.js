@@ -3,6 +3,13 @@ const Client = require('./Client');
 const FullDuplexConnection = require('./connections/FullDuplexConnection');
 const HalfDuplexConnection = require("./connections/HalfDuplexConnection");
 const SimplexConnection = require("./connections/SimplexConnection");
+const tls = require("node:tls");
+const fs = require('fs');
+
+const options = {
+key: fs.readFileSync('./key.pem'),
+cert: fs.readFileSync('./cert.pem'),
+};
 
 
 class WebSocket{
@@ -15,7 +22,7 @@ class WebSocket{
     #onClientSocketEndCallback = (client)=>{}
 
     constructor(){
-        this.#TCPServer = net.createServer((socket)=>{
+        this.#TCPServer = tls.createServer(options , (socket)=>{
             try{
                 this.#addClients(socket);                
             }catch(e){
